@@ -1,61 +1,51 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const storage = require('./storage');
+const express = require("express");
+const cors = require("cors");
+const { BlobServiceClient } = require("@azure/storage-blob");
+const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
-
-// API: add posts
-app.post('/api/posts', async (req, res) => {
-  try {
-    const data = req.body;
-    const rows = Array.isArray(data) ? data : [data];
-    const added = await storage.appendRows(rows);
-    res.json({ ok: true, added });
-  } catch (err) {
-    console.error('Error saving posts:', err);
-    res.status(500).json({ error: 'Failed to save posts' });
-  }
-});
-
-// API: get posts
-app.get('/api/posts', async (req, res) => {
-  try {
-    const all = await storage.readAll();
-    res.json((all || []).reverse());
-  } catch (err) {
-    console.error('Error reading posts:', err);
-    res.status(500).json({ error: 'Failed to read posts' });
-  }
-});
-
-// API: download Excel
-app.get('/api/download-excel', async (req, res) => {
-  try {
-    if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
-      const { BlobServiceClient } = require('@azure/storage-blob');
-      const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
-      const containerClient = blobServiceClient.getContainerClient(process.env.STORAGE_CONTAINER_NAME || 'posts');
-      const blobClient = containerClient.getBlockBlobClient('posts.xlsx');
-      if (!(await blobClient.exists())) return res.status(404).send('No excel');
-      const buffer = await blobClient.downloadToBuffer();
-      res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.set('Content-Disposition', 'attachment; filename=posts.xlsx');
-      return res.send(buffer);
-    } else {
-      const file = path.join(__dirname, 'data', 'posts.xlsx');
-      if (!fs.existsSync(file)) return res.status(404).send('No excel');
-      return res.download(file);
-    }
-  } catch (err) {
-    console.error('Error downloading Excel:', err);
-    res.status(500).json({ error: 'Failed to download Excel' });
-  }
-});
+app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log('Backend running on port', PORT));
+const AZURE_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const CONTAINER_NAME = process.env.STORAGE_CONTAINER_NAME || "posts";
+
+const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_CONN);
+const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+
+// Test endpoint
+app.get("/", (req, res) => {
+  res.send("CrisisWatch Backend Running");
+});
+
+// Fetch all posts from Azure container and return as JSON
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = [];
+    for await (const blob of containerClient.listBlobsFlat()) {
+      const blockBlobClient = containerClient.getBlockBlobClient(blob.name);
+      const downloadBlockBlobResponse = await blockBlobClient.downloadToBuffer();
+      const filePath = path.join(__dirname, blob.name);
+      fs.writeFileSync(filePath, downloadBlockBlobResponse);
+
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      posts.push(...data);
+
+      fs.unlinkSync(filePath); // clean up
+    }
+    res.json(posts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
+});
