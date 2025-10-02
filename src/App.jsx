@@ -5,6 +5,14 @@ import * as XLSX from 'xlsx';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+const sentimentColors = {
+  "Strongly Positive": "bg-green-500 text-white",
+  "Positive": "bg-green-300 text-black",
+  "Neutral/Informational": "bg-gray-300 text-black",
+  "Negative": "bg-red-300 text-black",
+  "Strongly Negative": "bg-red-500 text-white"
+};
+
 const sentimentToScore = (sentiment) => {
   switch (sentiment) {
     case 'Strongly Positive': return 2;
@@ -73,20 +81,61 @@ export default function App() {
   const topEscalation = useMemo(()=>posts.filter(p=> (p.sentiment==='Strongly Negative' || p.sentiment==='Negative')).sort((a,b)=> (b.engagement||0)-(a.engagement||0)).slice(0,5), [posts]);
 
   return (
-    <div className="container">
-      <h1>CrisisWatch — Admin Panel (Demo)</h1>
-      <div>
-        <label className="btn">Upload Excel<input type="file" onChange={onFile} style={{display:'none'}} /></label>
-        <button onClick={exportExcel}>Download Excel</button>
-        <button onClick={fetchPosts}>{loading ? 'Refreshing...' : 'Refresh'}</button>
-      </div>
-      <div>
-        <h3>Summary</h3>
-        <p>Total: {summary.total}</p>
-        <p>Actionable: {summary.actionable}</p>
-        <p>Overall Sentiment Index: {summary.overall}</p>
-      </div>
-      {/* Add other sections like tables, top themes, viral posts, etc. */}
-    </div>
-  );
-}
+    <div className="min-h-screen p-6 bg-gradient-to-r from-purple-50 via-blue-50 to-pink-50 font-sans">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-6 flex flex-col md:flex-row justify-between items-center">
+          <h1 className="text-3xl font-bold text-indigo-800 mb-4 md:mb-0">CrisisWatch Admin Panel</h1>
+          <div className="flex gap-2">
+            <label className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600">
+              Upload Excel
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={onFile} className="hidden"/>
+            </label>
+            <button onClick={exportExcel} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Download Excel</button>
+            <button onClick={fetchPosts} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">{loading ? 'Refreshing...' : 'Refresh'}</button>
+          </div>
+        </header>
+
+        {/* Sentiment Cards */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {Object.entries(summary.counts).map(([k,v]) => (
+            <div key={k} className={`p-4 rounded shadow ${sentimentColors[k]}`}>
+              <h3 className="font-semibold">{k}</h3>
+              <p className="text-lg">{v} mentions</p>
+            </div>
+          ))}
+        </section>
+
+        {/* Summary Section */}
+        <section className="bg-white p-6 rounded shadow mb-6">
+          <h2 className="text-xl font-bold mb-4">Summary</h2>
+          <p>Total Mentions: <strong>{summary.total}</strong></p>
+          <p>Actionable Mentions: <strong>{summary.actionable}</strong></p>
+          <p>Overall Sentiment Index: <strong>{summary.overall}</strong></p>
+        </section>
+
+        {/* Top Themes */}
+        <section className="bg-white p-6 rounded shadow mb-6">
+          <h2 className="text-xl font-bold mb-4">Top Themes</h2>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex-1">
+              <h3 className="font-semibold mb-2">Positive</h3>
+              <ul className="list-disc ml-5">
+                {summary.positiveThemes.map(t => <li key={t.theme}>{t.theme} — {t.count}</li>)}
+              </ul>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold mb-2">Negative</h3>
+              <ul className="list-disc ml-5">
+                {summary.negativeThemes.map(t => <li key={t.theme}>{t.theme} — {t.count}</li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Top Viral */}
+        <section className="bg-white p-6 rounded shadow mb-6">
+          <h2 className="text-xl font-bold mb-4">Top Viral Mentions</h2>
+          <ol className="list-decimal ml-5">
+            {topViral.map(p => (
+              <li key={p.id}>
+               
