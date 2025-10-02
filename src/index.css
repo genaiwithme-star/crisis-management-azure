@@ -1,1 +1,7 @@
-body { margin:0; font-family: Arial, sans-serif; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gradient-to-r from-purple-50 via-blue-50 to-pink-50 min-h-screen font-sans;
+}
