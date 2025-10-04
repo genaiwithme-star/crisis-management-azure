@@ -3,7 +3,7 @@ import axios from 'axios';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 
-const API = import.meta.env.VITE_API_URL || 'https://crisiswatch-backend-cvhseuawceckefcm.centralindia-01.azurewebsites.net/';
+const API = import.meta.env.VITE_API_URL || 'https://crisiswatch-backend-cvhseuawceckefcm.centralindia-01.azurewebsites.net';
 
 const sentimentColors = {
   "Strongly Positive": "bg-green-500 text-white",
