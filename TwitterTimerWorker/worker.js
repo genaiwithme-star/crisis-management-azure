@@ -7,7 +7,7 @@ module.exports = async function (context, myTimer) {
     const bearerToken = process.env.TWITTER_BEARER_TOKEN;
 
     if (!bearerToken) {
-        context.log('TWITTER_BEARER_TOKEN not set in Application Settings!');
+        context.log('TWITTER_BEARER_TOKEN not set in Application Settings!!!');
         return;
     }
 
